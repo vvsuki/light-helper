@@ -1,0 +1,9 @@
+{
+    "componentName": "hotAreaFence",
+    "labelText": "热区圈选",
+    "componentKey": "hotAreaList",
+    "dynamicValuesComponentKey": {
+        "url": ""
+    },
+    "componentValue": "[]"
+}
