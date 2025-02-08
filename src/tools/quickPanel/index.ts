@@ -1,6 +1,6 @@
-import { SnippetString, CompletionItemKind, languages, Range, ProviderResult, TextDocument, Position, CancellationToken, CompletionContext, CompletionItem, CompletionList } from "vscode";
+import { SnippetString, 
+  workspace, commands, window, CompletionItemKind, languages, Range, ProviderResult, TextDocument, Position, CancellationToken, CompletionContext, CompletionItem, CompletionList } from "vscode";
 import { SnippetStringMap } from './panel'
-const vscode = require('vscode');
 /**
  * 快捷生成panel信息
  * 
