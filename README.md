@@ -2,6 +2,25 @@
 
 This is the README for your extension "light-helper". After writing up a brief description, we recommend including the following sections.
 
+## 插件说明
+
+Light Helper 是一个 VSCode 插件，用于帮助使用 Light 低代码平台的开发者快速生成 panel， 并将 panel 转换 Light 组件的 options 配置。
+
+## 功能特性
+
+1. quickPanel 快速生成 panel 
+2. optionsTranser 将 panel 转换 Light 组件的 options 配置	
+
+## 使用说明
+
+1. 使用`lightbase.*`（组件名称 | input | select | checkbox |... ）,  快速生成对应的 panel 配置
+2. 右键命令 - `生成LightOptions`  将 panel 转换 Light 组件的 options 配置	
+
+## 效果展示
+
+![quickPanel](images/quickPanel.gif)
+![optionsTranser](images/optionsTranser.gif)
+
 ## Features
 
 Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
