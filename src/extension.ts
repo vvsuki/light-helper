@@ -9,16 +9,7 @@ import {
 	StatusBarItem, TextDocument,
 
 	} from 'vscode';
-
-	
-	// import {
-	// 	LanguageClient,
-	// 	LanguageClientOptions,
-	// 	ServerOptions,
-	// 	TransportKind
-	// } from 'vscode-languageclient';
-import { WordCounter, WordCounterController } from './tools/wordCounter';
-
+import { OptionsTransformer,  } from './tools/optionsTranser';
 import { quickPanelProvider } from './tools/quickPanel'
 /**
  * 插件被激活时触发， 所有代码总入口
@@ -35,13 +26,13 @@ export function activate(context: ExtensionContext) {
     // registerCommand中的参数必须与package.json中的command保持一致
 
 	// commands是命令执行
-	const comindId = 'lightHelper.getPanelOptions'
-	let disposable = commands.registerCommand(comindId, () => {
-		window.showInformationMessage('Light Hello World!')
+	const commitId = 'LightHelper.getPanelOptions'
+	let disposable = commands.registerCommand(commitId, () => {
+		const optionsTransformer = new OptionsTransformer();
+		optionsTransformer.getPanelData();
 	});
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(quickPanelProvider)
-
 }
 
 

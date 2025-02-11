@@ -74,6 +74,7 @@
 		"webpack-cli": "^4.4.0"
 	},
 	"dependencies": {
+		"acorn": "^8.14.0",
 		"vscode-languageclient": "^9.0.1"
 	}
 }
