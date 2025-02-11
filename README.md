@@ -21,19 +21,11 @@ Light Helper 是一个 VSCode 插件，用于帮助使用 Light 低代码平台�
 ![quickPanel](images/quickPanel.gif)
 ![optionsTranser](images/optionsTranser.gif)
 
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+因为公司的node版本是14.x， 所以如果要新准备一个vscode插件开发时，新建项目需要使用1.4.18版本的generator-code， 否则会报错。
+
+> Tip: npm install -g yo@4.3.1 generator-code@1.4.18
 
 ## Extension Settings
 
