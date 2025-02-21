@@ -34,3 +34,9 @@ export function cloneDeep<T>(value: T): T {
 export const isObject = (obj: any) => {
     return typeof obj === 'object' && obj !== null;
 }
+
+
+// 路径转义函数
+export function escapePath(rawPath: string) {
+    return rawPath.replace(/\\/g, '\\\\');
+}

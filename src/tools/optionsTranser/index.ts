@@ -1,10 +1,18 @@
-const acorn = require('acorn');
 import { Node } from 'acorn';
-import { window, Disposable, StatusBarItem, StatusBarAlignment, WebviewPanel, ViewColumn } from "vscode";
+import { window, Disposable, StatusBarItem, StatusBarAlignment, workspace, 	WorkspaceFolder , WebviewPanel, ViewColumn } from "vscode";
 import { cloneDeep } from './utils';
 import { ASTParser } from './utils/ASTParser';
 import { Webview } from './components/webview';
-import { parsePanelJs } from './utils/panelNode';
+import { execSync } from 'child_process';
+import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
+import { transformFileSync } from '@babel/core'
+
+// 声明模块
+declare module '@babel/preset-env';
+
+
 type DynamicValue = {
 	isDynamic: boolean;
 	value: any;
@@ -39,20 +47,133 @@ export class OptionsTransformer {
 		
 			const text = editor.document.getText();
 			const filePath = editor.document.uri.fsPath;
-
-		  
+			// // 获取当前的工作区文件夹
+			const workspaceFolders = workspace.workspaceFolders;
+			// // 假设只有一个工作区文件夹
+			const workspaceFolder = workspaceFolders?.[0];
+			const workspacePath = workspaceFolder?.uri.fsPath || '';
 			// 创建解析器实例时传入当前文件路径
-			const parser = new ASTParser(filePath);
-			const panelData = await parser.parse(text);
-			
-			if (!panelData) {
-				this._statusBarItem.text = `未找到panelComponents声明`;
-				return;
-			}
+			const parser = new ASTParser( filePath, workspacePath );
+			const dependencies = await parser.parse(text);
+			console.log('path', path.join(__dirname, '../node_modules/@babel/plugin-transform-modules-commonjs'));
+			const transpileFile = (filePath: string) => {
+				const result = transformFileSync(filePath, {
+				  presets: [
+					[
+					  path.join(__dirname, '../node_modules/@babel/preset-env'),
+					
+						{
+						targets: { node: 'current' },
+						modules: 'commonjs',
+						useBuiltIns: 'usage',
+						corejs: 3
+					  }
+					]
+				  ],
+				  plugins: [
+					[
+						path.join(__dirname, '../node_modules/@babel/plugin-transform-modules-commonjs'), 
+						{ 
+							strictMode: true,  // 确保导出顺序正确
+							noInterop: false   // 允许default导出
+						}
+				  	],
+					// 新增路径转换插件
+					function replaceImportPath() {
+						return {
+						  visitor: {
+							ImportDeclaration(node: any) {
+							  // 替换本地相对路径引用
+							  const source = node.node.source.value;
+							  if (source.startsWith('.')) {
+								const ext = path.extname(source);
+								const base = path.basename(source, ext);
+								const newBase = `./transpiled_${base}`;
+								node.node.source.value = newBase;
+							  }
+							},
+						  }
+						};
+					  }
+				  ],
+				  ignore: [],
+				  include: /.*/,
+				  sourceType: 'unambiguous',
+				});
+				if (!result?.code) throw new Error(`转译失败: ${filePath}`);
+				
+				const outputPath = path.join(fileDir, `transpiled_${path.basename(filePath)}`);
+				fs.writeFileSync(outputPath, result.code);
+				return outputPath;
+			  };
 
-			const options = this.panelToOptions(panelData);
-			console.log('options', options);
-			this._webview.renderWebview(options);
+			
+			const fileDir = path.dirname(filePath);
+
+			const tempScriptPath = path.join(fileDir, 'tempScript.cjs');
+			const escapedFilePath = filePath.replace(/\\/g, '\\\\');
+			// 主文件转译
+			const mainTranspiledPath = transpileFile(escapedFilePath);
+					
+			// 依赖文件转译 ↓
+			const depTranspiledPaths = Array.from(dependencies?.values()).map(dep => 
+				transpileFile(path.resolve(fileDir, dep.path))
+			);
+
+	
+	  
+			const tempScriptContent = `
+				(async () => {
+				try {
+					
+					const targetModule = require('${mainTranspiledPath.replace(/\\/g, '/')}');
+					console.log(JSON.stringify(targetModule.default || targetModule));
+				} catch (error) {
+					console.error('完整错误:', error.stack);
+					process.exit(1);
+				}
+				})();
+				`;
+
+			   // 将临时脚本内容写入文件
+			   await vscode.workspace.fs.writeFile(vscode.Uri.file(tempScriptPath), Buffer.from(tempScriptContent));
+			   console.log(`临时脚本已写入: ${tempScriptPath}`);
+   
+			   // 执行临时脚本并获取输出
+			   const panelData = execSync(`node ${tempScriptPath}`, { cwd: fileDir, encoding: 'utf8' });
+   
+			   [mainTranspiledPath, ...depTranspiledPaths].forEach(p => {
+				try {
+				  fs.unlinkSync(p);
+				  console.log('已删除转译文件:' , p);
+				} catch (e) {
+				console.log('删除转译文件失败:' , p, e);
+
+				}
+			  });
+
+			  
+			// 修改后的解析逻辑
+			try {
+				const rawData = panelData.trim();
+				// 添加空值检查
+				if (!rawData.startsWith('{') && !rawData.startsWith('[')) {
+				throw new Error('非法的JSON数据格式');
+				}
+				
+				const parsedData = JSON.parse(rawData);
+				
+				if (parsedData?.__ERROR__) {
+				throw new Error(`模块执行错误: ${parsedData.message}\n${parsedData.stack}`);
+				}
+			
+				const options = this.panelToOptions(parsedData);
+				this._webview.renderWebview(options);
+				vscode.window.showInformationMessage('转换成功');
+			} catch (e: any) {
+				console.error('解析失败:', e);
+				throw new Error(`数据解析错误: ${e.message}`);
+			}
 
 		} catch (error: any) {
 			console.log('error', error);
@@ -62,7 +183,7 @@ export class OptionsTransformer {
 	}
 
 	// 转为options
-	public panelToOptions(panel: Array<Panel>){
+	public panelToOptions(panel: Array<any>){
 		const options: { [key: string]: any } = {};
 		
 		if (!panel) return options;
@@ -83,36 +204,3 @@ export class OptionsTransformer {
 	}
 
 }
-
-// /***
-//  * 订阅事件
-//  */
-// export class TransController {
-// 	private _transformer: OptionsTransformer; // 字数统计器
-// 	private _disposable: Disposable; // 释放器
-
-
-// 	constructor(transformer: OptionsTransformer) {
-// 		this._transformer = transformer;
-// 		// 收集所有事件的Disposable， 统一释放
-// 		let subscriptions: Disposable[] = [];
-		
-// 		// 订阅编辑器改变事件
-        
-//         //激活编辑器（打开的编辑器）切换的时候触发
-// 		window.onDidChangeActiveTextEditor(this._onEvents, this, subscriptions)
-//          //鼠标位置变动时触发
-//         window.onDidChangeTextEditorSelection(this._onEvents, this, subscriptions);
-// 		this._wordCounter.updateWordCount();
-
-//         // 把两个事件订阅器整合成一个临时容器
-//         this._disposable = Disposable.from(...subscriptions);
-// 	}
-//     _onEvents(){
-//        this._wordCounter.updateWordCount()
-//     }
-    
-//     dispose() {
-//         this._disposable.dispose();
-//     }
-// }

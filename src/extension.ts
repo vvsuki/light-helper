@@ -11,6 +11,7 @@ import {
 	} from 'vscode';
 import { OptionsTransformer,  } from './tools/optionsTranser';
 import { quickPanelProvider } from './tools/quickPanel'
+
 /**
  * 插件被激活时触发， 所有代码总入口
  * @param context 插件上下文
@@ -31,6 +32,7 @@ export function activate(context: ExtensionContext) {
 	const commitId = 'LightHelper.getPanelOptions'
 	let disposable = commands.registerCommand(commitId, () => {
 		optionsTransformer.getPanelData();
+		
 	});
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(quickPanelProvider)

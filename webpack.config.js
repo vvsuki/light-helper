@@ -17,9 +17,12 @@ const config = {
     libraryTarget: 'commonjs2'
   },
   devtool: 'nosources-source-map',
+  // 在externals配置中添加排除规则
   externals: {
-    vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
-    // modules added here also need to be added in the .vsceignore file
+      vscode: 'commonjs vscode',
+      // 防止webpack打包babel相关依赖
+      '@babel/core': 'commonjs @babel/core',
+      '@babel/preset-env': 'commonjs @babel/preset-env' 
   },
   resolve: {
     // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
