@@ -1,12 +1,10 @@
 // 将 AST 中的 ObjectExpression 节点转换为实际的 JavaScript 对象
 
-import { Node } from 'acorn';
 import * as acorn from 'acorn';
 import * as walk from 'acorn-walk';
-import * as vm from 'vm'; // 用于动态执行代码
 import * as path from 'path';
 import * as fs from 'fs';
-import { escapePath } from './index'
+import { filePathTransAlias } from './filePathTrans';
 
 
 // 存储依赖关系的类型
@@ -21,11 +19,19 @@ export class ASTParser {
 	private filePath: string;
 	private nodeModulesPath: string;
 	private imports: string[] = [];
-    constructor(filePath: string,  workspacePath: string) {
-		this.filePath = filePath;
-		this.nodeModulesPath = path.join(workspacePath, 'node_modules');
-		this.dependencies = new Map<string, Dependency>();
-		
+	private pathAliases: Record<string, string>;  // 新增路径别名存储
+    private currentDir: string;            
+	constructor(options: {
+        filePath: string;
+        workspacePath: string;
+        pathAliases: Record<string, string>;
+        currentDir: string;
+    }) {
+        this.filePath = options.filePath;
+        this.nodeModulesPath = path.join(options.workspacePath, 'node_modules');
+        this.dependencies = new Map<string, Dependency>();
+        this.pathAliases = options.pathAliases;    // 继承路径别名
+        this.currentDir = options.currentDir;     // 继承当前目录
     }
 
     public parse(code: string) {
@@ -35,7 +41,7 @@ export class ASTParser {
         });
 		this.collectImports(ast);
 		this.readImport(this.filePath, this.dependencies);
-		console.log('dependencies', this.dependencies);
+		console.log('dependencies', this.filePath, this.dependencies);
 		return this.dependencies;
         // return this.findPanelComponents(ast);
     }
@@ -47,7 +53,6 @@ export class ASTParser {
 
 			const resolvedPath = this.resolveImportPath(imp, currentDir);
 			if (!resolvedPath || this.dependencies.has(resolvedPath)) continue;
-		
 			const dependency: Dependency = {
 			  path: resolvedPath,
 			  type: imp.startsWith('.') ? 'local' : 'node_module',
@@ -90,23 +95,23 @@ export class ASTParser {
 	// 路径解析器
 	private resolveImportPath(importPath: string, baseDir: string): string | null {
 		try {
-		  if (importPath.startsWith('.')) {
-			const fullPath = path.resolve(baseDir, importPath);
-			// 尝试添加扩展名
-			const extensions = ['', '.js', '.ts', '.json'];
-			for (const ext of extensions) {
-			  const candidate = fullPath + ext;
-			  if (fs.existsSync(candidate)) {
-				return candidate;
-			  }
+			const fullPath = path.resolve(baseDir, importPath);		 	 // 处理相对路径
+			const truePath = filePathTransAlias(fullPath, this.pathAliases); // 处理路径别名
+		  	if (importPath.startsWith('.') || truePath) {
+				// 尝试添加扩展名
+				const extensions = ['', '.js', '.ts', '.json'];
+				for (const ext of extensions) {
+					const candidate = truePath + ext;
+					if (fs.existsSync(candidate)) {
+						return candidate;
+					}
+				}
+				
+				return null;
 			}
-			
-			return null;
-		  }
 	
-		  // 处理 node_modules
-		//   return require.resolve(importPath, { paths: [escapePath(this.nodeModulesPath)] });
-		return importPath;
+		  	// 处理 node_modules
+			return importPath;
 		} catch (e) {
 			console.log('resolveImportPath error',this.nodeModulesPath, e);
 		  return null;
