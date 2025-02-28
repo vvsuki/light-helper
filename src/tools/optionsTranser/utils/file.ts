@@ -66,3 +66,15 @@ export function addExtensionIfNeeded(filePath: string): string {
 		return filePath;
 	
 }
+// 目录删除功能
+
+export function deleteFolder(folderPath: string) {
+    if (fs.existsSync(folderPath)) {
+		// fs.rmSync的recursive和force参数设置为true时，会递归删除目录中的所有文件和子目录
+        fs.rmSync(folderPath, {
+            recursive: true,
+            force: true
+        });
+        console.log(`已删除目录: ${folderPath}`);
+    }
+}

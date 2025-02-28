@@ -1,9 +1,11 @@
-import { WebviewPanel ,Disposable, env, window, ViewColumn} from "vscode";
+import { WebviewPanel ,Disposable, env, window, StatusBarItem, ViewColumn} from "vscode";
+
 export class Webview {
 	private _panelView!: WebviewPanel | null;
 	private _disposables: Disposable[] = [];
-	constructor() {
-	
+	private _statusBarItem: StatusBarItem;
+	constructor(statusBarItem:StatusBarItem) {
+		this._statusBarItem = statusBarItem // 继承状态栏
 	}
 	
 	  // 新增面板控制方法
@@ -15,7 +17,10 @@ export class Webview {
                     'lightHelper',
                     'Light生成options',
                     ViewColumn.Beside,
-                    {}
+                    {
+						enableScripts: true, // 允许js脚本执行
+						retainContextWhenHidden: true,// 当页签切换离开时保持插件上下文不销毁
+					}
                 );
             }
             // 显示面板
@@ -29,8 +34,7 @@ export class Webview {
 
 
 	public renderWebview(data: any) {
-	
-        
+
 		// 先生成 HTML 内容
 		const htmlContent = this.getWebviewContent(data);
 		// 调用toggle显示面板
@@ -64,6 +68,9 @@ export class Webview {
 						  case 'debug':
 							  console.log('调试消息:', message.action);
 							  break;
+							  case 'retryRender':
+								this.renderWebview(data); // 需要保持 data 的引用
+								break;
 						  default:
 							  console.warn('未知消息类型:', message);
 					  }
@@ -82,7 +89,15 @@ export class Webview {
 			<head>
 				<meta charset="UTF-8">
 				<style>
-				
+					/* 添加加载动画 */
+					.loading {
+						position: fixed;
+						top: 50%;
+						left: 50%;
+						transform: translate(-50%, -50%);
+						font-size: 20px;
+						color: var(--vscode-editor-foreground);
+					}
 					body {
 						padding: 20px;
 						font-family: var(--vscode-font-family);
@@ -156,6 +171,10 @@ export class Webview {
 				</style>
 			</head>
 			<body>
+			<!-- 添加加载提示 -->
+            <div class="loading" id="loading">正在生成选项预览...</div>
+            
+
 				<!-- 添加调试工具栏 -->
 				<div class="debug-toolbar">
 					<button onclick="openDevTools">打开调试器</button>
@@ -171,15 +190,21 @@ export class Webview {
 					${this.renderJSON(data)}
 				</div>
 				<script>
+				  // 先显示加载提示
+                	const loading = document.getElementById('loading');
+                  // 延迟渲染防止阻塞
+                window.addEventListener('load', () => {
+                    // 隐藏加载动画
+                    loading.style.display = 'none';
 					const vscode = acquireVsCodeApi();
 					 // 修正消息发送逻辑
-						function safePostMessage(msg) {
-							try {
-								vscode.postMessage(msg);
-							} catch (e) {
-								console.error('消息发送失败:', e);
-							}
+					function safePostMessage(msg) {
+						try {
+							vscode.postMessage(msg);
+						} catch (e) {
+							console.error('消息发送失败:', e);
 						}
+					}
 
 					function copyToClipboard() {
 						const content = ${JSON.stringify(data).replace(/\\/g, '\\\\')}; // 处理路径转义
@@ -189,10 +214,7 @@ export class Webview {
 						});
 					}
 
-					// 添加心跳检测
-					setInterval(() => {
-						safePostMessage({ command: 'ping' });
-					}, 3000);
+					
 					// 调试方法
 					function openDevTools() {
 						vscode.postMessage({
@@ -230,7 +252,11 @@ export class Webview {
 						});
 					}
 	
-					
+				});
+				  // 添加重试机制
+                function retryRender() {
+                    vscode.postMessage({ command: 'retryRender' });
+                }
 				</script>
 			</body>
 			</html>

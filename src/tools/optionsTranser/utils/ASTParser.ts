@@ -4,7 +4,7 @@ import * as acorn from 'acorn';
 import * as walk from 'acorn-walk';
 import * as path from 'path';
 import * as fs from 'fs';
-import { filePathTransAlias } from './filePathTrans';
+import { filePathTransAlias } from './file';
 
 
 // 存储依赖关系的类型
