@@ -1,0 +1,51 @@
+<script>
+let currentData = null;
+const vscode = acquireVsCodeApi();
+
+window.addEventListener('message', event => {
+	const message = event.data;
+	switch (message.type) {
+		case 'LOAD_DATA':
+			currentData = message.data;
+			renderData(currentData);
+			break;
+	}
+});
+
+function renderData(data) {
+	const container = document.getElementById('json-content');
+	const loading = document.getElementById('loading');
+	loading.style.display = 'none';
+	console.log('renderData', data)
+	container.innerHTML = data;
+	initCollapsible();
+	initEvents();
+}
+
+function initCollapsible() {
+	document.querySelectorAll('.collapsible').forEach(el => {
+		el.addEventListener('click', (e) => {
+			if (e.target.parentElement.classList.contains('collapsible')) {
+				e.target.parentElement.classList.toggle('collapsed');
+			}
+		});
+	})
+}
+
+
+// 统一事件绑定
+function initEvents() {
+	document.getElementById('expandAll').addEventListener('click', expandAll);
+	document.getElementById('collapseAll').addEventListener('click', collapseAll);
+	document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+}
+
+function copyToClipboard() {
+	const content = JSON.stringify(data).replace(/\\/g, '\\\\'); // 处理路径转义
+	safePostMessage({
+		command: 'copy',
+		text: JSON.stringify(content, null, 2)
+	});
+}
+				
+</script>

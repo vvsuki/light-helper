@@ -1,81 +1,97 @@
-# light-helper README
+# Light Helper - VSCode 插件
 
-This is the README for your extension "light-helper". After writing up a brief description, we recommend including the following sections.
+![VSCode版本要求](https://img.shields.io/badge/vscode-1.75%2B-blue)
+![Node版本要求](https://img.shields.io/badge/node-14.x-green)
 
-## 插件说明
+专为 Light 低代码平台设计的开发辅助工具，提供可视化配置生成和转换能力。
 
-Light Helper 是一个 VSCode 插件，用于帮助使用 Light 低代码平台的开发者快速生成 panel， 并将 panel 转换 Light 组件的 options 配置。
+## ✨ 核心功能
 
-## 功能特性
+### 快速面板生成
+- 通过 `lightbase.*` 代码片段快速生成 UI 组件配置
+- 支持 input/select/checkbox 等常用组件类型
+- 实时预览配置结构 (见 `src/tools/optionsTranser`)
 
-1. quickPanel 快速生成 panel 
-2. optionsTranser 将 panel 转换 Light 组件的 options 配置	
+### 配置转换引擎
+- 将可视化配置转换为 Light 组件标准 Options
+- 自动处理路径别名和模块依赖 (见 `src/tools/optionsTranser/utils/file.ts`)
+- 支持递归转译和 AST 解析 (见 `src/tools/optionsTranser/index.ts`)
 
-## 使用说明
+### 可视化预览
+- Webview 实时渲染配置结构
+- 支持展开/折叠层级查看
+- 一键复制标准化配置
 
-1. 使用`lightbase.*`（组件名称 | input | select | checkbox |... ）,  快速生成对应的 panel 配置
-2. 右键命令 - `生成LightOptions`  将 panel 转换 Light 组件的 options 配置	
 
-## 效果展示
+## 🚀 快速开始
 
-![quickPanel](images/quickPanel.gif)
-![optionsTranser](images/optionsTranser.gif)
+### 安装要求
+```bash
+# 确保使用兼容版本
+npm install -g yo@4.3.1 generator-code@1.4.18
+```
 
-## Requirements
+### 基本使用
+- 在 JS/TS 文件中输入 `lightbase.` 触发代码补全
+- 右键选择「生成 Light Options」转换配置
+- 使用工具栏按钮管理配置结构
 
-因为公司的node版本是14.x， 所以如果要新准备一个vscode插件开发时，新建项目需要使用1.4.18版本的generator-code， 否则会报错。
+### 特色能力
+- 智能路径处理：支持 @/ 等路径别名转换（见 filePathTransAlias）
+- 增量更新：通过 Set 实现依赖去重（见 transpileRecursively）
+- 安全沙箱：Webview 独立上下文通信（见 src/tools/optionsTranser/components/webview.ts）
 
-> Tip: npm install -g yo@4.3.1 generator-code@1.4.18
+## 🚀 开发调试
+```bash
+# 安装依赖
+npm install
 
-## Extension Settings
+# 编译运行
+npm run compile
+F5 启动调试实例
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
 
-For example:
+```
+## 🛠 技术实现
 
-This extension contributes the following settings:
 
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
 
-## Known Issues
+### 核心模块
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+#### 1. Webview管理 (`src/tools/optionsTranser/components/webview.ts`)
+- **生命周期控制**：实现面板创建/销毁逻辑
+- **双缓冲渲染**：骨架屏 → 数据渲染切换
+- **安全通信**：通过`postMessage`与扩展进程交互
+```typescript
+class Webview {
+  createWebview() { /* 带错误检查的面板创建 */ }
+  renderSkeletonWebview() { /* 加载动画实现 */ }
+  onMessageHandler() { /* 安全的消息过滤机制 */ }
+}
+```
 
-## Release Notes
 
-Users appreciate release notes as you update your extension.
+#### 2. 配置转换器 (`src/tools/optionsTranser/index.ts`)
+- **Babel 转译**：使用 Babel 转译并分析 AST， ESM → CJS 转换 (transpileFile)
+- **依赖追踪**：递归分析文件依赖树 (transpileRecursively)
+- **动态加载**：通过临时脚本执行转换结果
 
-### 1.0.0
+```typescript
+Apply
+transpileFile(filePath) {
+  // 使用自定义Babel插件处理路径转换
+  plugins: [function customPathPlugin() { ... }]
+}
+```
 
-Initial release of ...
+#### 3. 路径转换系统 (src/tools/optionsTranser/utils/file.ts)
+别名解析：转换@/等路径别名 (filePathTransAlias)
+模块定位：基于tsconfig.json的路径映射
+扩展处理：智能补全文件扩展名
 
-### 1.0.1
 
-Fixed issue #.
 
-### 1.1.0
+#### 4. 状态管理 (src/tools/optionsTranser/index.ts)
+进度反馈：状态栏多阶段提示 (setStatusBarText)
 
-Added features X, Y, and Z.
 
------------------------------------------------------------------------------------------------------------
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-**Note:** You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+CMD+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux) or `Cmd+Space` (macOS) to see a list of Markdown snippets
-
-### For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
