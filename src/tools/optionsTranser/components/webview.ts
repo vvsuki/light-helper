@@ -16,7 +16,7 @@ export class Webview {
 			ViewColumn.One,
 			{
 				enableScripts: true, // 允许js脚本执行
-				retainContextWhenHidden: false,// 当页签切换离开时保持插件上下文不销毁
+				retainContextWhenHidden: true,// 当页签切换离开时保持插件上下文不销毁
 			}
 		);
 		this.renderSkeletonWebview();
@@ -65,32 +65,30 @@ export class Webview {
 		// 确保面板存在且未被销毁
 		if (!this._panelView) {
 			this.createWebview()
-		} 
+		} else {
+			// 重要：清空旧的事件监听器
+			this._disposables.forEach(d => d.dispose());
+			this._disposables = [];
+		}
 
 		if (this._panelView) {
 			const renderHtml = this.renderJSON(data)
-			console.log('data', data)
-			this._panelView.webview.html = this.getWebviewContent(data)
-			// 异步传递数据
-			setTimeout(() => {
-				console.log('postMessage')
-				this._panelView?.webview.postMessage({
-					type: 'LOAD_DATA',
-					data: renderHtml
-				});
-			}, 0);
+			
+			// 强制更新webview内容
+			this._panelView.webview.html = this.getWebviewContent(data);  // 确保传入最新数据
+			
+			this._panelView.webview.postMessage({
+				type: 'LOAD_DATA',
+				data: renderHtml
+			});
+
 			// 更新消息处理逻辑
 			this._disposables.push(
 				this._panelView.webview.onDidReceiveMessage(
 					message => {
-						switch (message?.command) {  // 添加空值检查
+						switch (message?.command) { 
 							case 'copy':
-								console.log('复制消息:', data);
-								// todo 可能会有性能问题
-								env.clipboard.writeText(JSON.stringify(data)).then(() => {
-									window.showInformationMessage('已复制到剪贴板');
-								 })
-								
+								env.clipboard.writeText(JSON.stringify(data));
 								break;
 							default:
 								console.warn('未知消息类型:', message);
@@ -98,12 +96,10 @@ export class Webview {
 					}
 				)
 			);
-		};
-		
-
-		
+		}
 	}
-	
+
+
 	private getWebviewContent(data: any): string {
 		return `
 			<!DOCTYPE html>
@@ -203,11 +199,9 @@ export class Webview {
 					<button id="copyBtn" >复制</button>
 				</div>
 				<div class="json-container" id="json-content">
-					<div class="loading" id="loading">
-						<div class="skeleton-line" style="width: 80%"></div>
-						<div class="skeleton-line" style="width: 60%"></div>
-						<div class="skeleton-line" style="width: 70%"></div>
-					</div>    
+					<div class="skeleton-line" style="width: 80%"></div>
+					<div class="skeleton-line" style="width: 60%"></div>
+					<div class="skeleton-line" style="width: 70%"></div>
 				</div>
 			</body>
 			<script>
@@ -227,9 +221,7 @@ export class Webview {
 
 				function renderData(data) {
 					const container = document.getElementById('json-content');
-					const loading = document.getElementById('loading');
 					console.log('renderData', data)
-					loading.style.display = 'none';
 					container.innerHTML = data;
 					initCollapsible();
 					initEvents();
