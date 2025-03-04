@@ -78,3 +78,4 @@ export function deleteFolder(folderPath: string) {
         console.log(`已删除目录: ${folderPath}`);
     }
 }
+

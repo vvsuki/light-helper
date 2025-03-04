@@ -11,10 +11,6 @@ import { transformFileSync } from '@babel/core' // 同步处理代码
 import { STATUS_TEXT } from './constant/status';
 
 
-type DynamicValue = {
-	isDynamic: boolean;
-	value: any;
-}
 // 存储依赖关系的类型
 type Dependency = {
 	fullPath: string; // 绝对路径
@@ -216,15 +212,14 @@ export class OptionsTransformer {
 			const workspaceFolders = workspace.workspaceFolders;
 			const workspaceFolder = workspaceFolders?.[0];
 			const workspacePath = workspaceFolder?.uri.fsPath || '';
-			// 新增：加载项目配置
+
+			// 加载宿主项目配置，读取alias
 			this.loadProjectConfig(workspacePath);
 			this.setStatusBarText(STATUS_TEXT.readConfig)
 
 			console.log('loadProjectConfig _pathAliases', this._pathAliases)
 			// 创建解析器实例时传入当前文件路径
-			
-			const fileDir = path.dirname(filePath);
-			this._fileDir = fileDir;
+			this._fileDir = path.dirname(filePath);
 
 			// 创建dist临时目录
 			if (!fs.existsSync(this._distDir)) {
@@ -256,6 +251,7 @@ export class OptionsTransformer {
 			const options = this.panelToOptions(parsedData);
 			this._webview.renderWebview(options);
 			window.showInformationMessage('转换成功');
+			this._statusBarItem.hide();
 		} catch (error: any) {
 			console.log('error', error);
 			this._statusBarItem.text = `解析代码时出错: ${error.message}`;

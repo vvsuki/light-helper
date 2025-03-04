@@ -1,4 +1,5 @@
 // 将 AST 中的 ObjectExpression 节点转换为实际的 JavaScript 对象
+// 已废弃 现使用babel解析， 但可以用这个文件学习回归一下AST的作用
 
 import * as acorn from 'acorn';
 import * as walk from 'acorn-walk';

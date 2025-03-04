@@ -8,80 +8,102 @@ export class Webview {
 		this._statusBarItem = statusBarItem // 继承状态栏
 	}
 	
-	  // 新增面板控制方法
-	  public toggleWebview(visible: boolean) {
-        if (visible) {
-            if (!this._panelView) {
-                // 如果面板不存在则创建
-                this._panelView = window.createWebviewPanel(
-                    'lightHelper',
-                    'Light生成options',
-                    ViewColumn.Beside,
-                    {
-						enableScripts: true, // 允许js脚本执行
-						retainContextWhenHidden: true,// 当页签切换离开时保持插件上下文不销毁
-					}
-                );
-            }
-            // 显示面板
-            this._panelView.reveal();
-        } else if (this._panelView) {
-            // 关闭并销毁面板
-            this._panelView.dispose();
-            this._panelView = null;
-        }
-    }
-
-
-	public renderWebview(data: any) {
-
-		// 先生成 HTML 内容
-		const htmlContent = this.getWebviewContent(data);
-		// 调用toggle显示面板
-		this.toggleWebview(true);
-		if (!this._panelView) {
-           return
-        }
-		this._panelView.webview.html = htmlContent;    
+	private createWebview() {
+		// 渲染
+		this._panelView = window.createWebviewPanel(
+			'myExtension.previewPanel',
+			'Light生成options',
+			ViewColumn.One,
+			{
+				enableScripts: true, // 允许js脚本执行
+				retainContextWhenHidden: false,// 当页签切换离开时保持插件上下文不销毁
+			}
+		);
+		this.renderSkeletonWebview();
 		// 添加面板关闭监听
 		this._panelView.onDidDispose(() => {
-			this._panelView = null;
-		});
+			this._panelView = null
+			this._disposables.forEach(d => d.dispose());
+			this._disposables = [];
+		}, null, this._disposables);
+	}
+	 // 先显示骨架屏
+	public renderSkeletonWebview() {
+		console.log("renderSkeletonWebview")
+		if (!this._panelView) return;
+		this._panelView.webview.html = this.getSkeletonContent();
+    }
+// 新增骨架屏模板
+	private getSkeletonContent(): string {
+		return `<!DOCTYPE html>
+			<html>
+			<head>
+				<style>
+					.skeleton-line {
+						height: 20px;
+						background: #eee;
+						margin: 10px;
+						border-radius: 4px;
+						animation: pulse 1.5s infinite;
+					}
+					@keyframes pulse {
+						0% { opacity: 1; }
+						50% { opacity: 0.5; }
+						100% { opacity: 1; }
+					}
+				</style>
+			</head>
+			<body>
+				<div class="skeleton-line" style="width: 80%"></div>
+				<div class="skeleton-line" style="width: 60%"></div>
+				<div class="skeleton-line" style="width: 70%"></div>
+			</body>
+			</html>`;
+	}
 
-		  // 清空旧监听器
-		  this._disposables.forEach(d => d.dispose());
-		  this._disposables = [];
-		// 添加消息回执
-		this._panelView?.webview.postMessage({
-			type: 'ACK',
-		});
-		  // 更新消息处理逻辑
-		  this._disposables.push(
-			  this._panelView.webview.onDidReceiveMessage(
-				  message => {
-					  console.log('收到消息:', message); // 添加详细日志
-					  switch (message?.command) {  // 添加空值检查
-						  case 'copy':
-							  env.clipboard.writeText(message.text);
-							  window.showInformationMessage('已复制到剪贴板');
-							  break;
-						  case 'debug':
-							  console.log('调试消息:', message.action);
-							  break;
-							  case 'retryRender':
-								this.renderWebview(data); // 需要保持 data 的引用
+	public renderWebview(data: any) {
+		// 确保面板存在且未被销毁
+		if (!this._panelView) {
+			this.createWebview()
+		} 
+
+		if (this._panelView) {
+			const renderHtml = this.renderJSON(data)
+			console.log('data', data)
+			this._panelView.webview.html = this.getWebviewContent(data)
+			// 异步传递数据
+			setTimeout(() => {
+				console.log('postMessage')
+				this._panelView?.webview.postMessage({
+					type: 'LOAD_DATA',
+					data: renderHtml
+				});
+			}, 0);
+			// 更新消息处理逻辑
+			this._disposables.push(
+				this._panelView.webview.onDidReceiveMessage(
+					message => {
+						switch (message?.command) {  // 添加空值检查
+							case 'copy':
+								console.log('复制消息:', data);
+								// todo 可能会有性能问题
+								env.clipboard.writeText(JSON.stringify(data)).then(() => {
+									window.showInformationMessage('已复制到剪贴板');
+								 })
+								
 								break;
-						  default:
-							  console.warn('未知消息类型:', message);
-					  }
-				  }
-			  )
-		  );
+							default:
+								console.warn('未知消息类型:', message);
+						}
+					}
+				)
+			);
+		};
+		
+
+		
 	}
-	expandAll(){
-		console.log('render expandAll')
-		return `expandAll()`;
-	}
+	
 	private getWebviewContent(data: any): string {
 		return `
 			<!DOCTYPE html>
@@ -90,13 +112,17 @@ export class Webview {
 				<meta charset="UTF-8">
 				<style>
 					/* 添加加载动画 */
-					.loading {
-						position: fixed;
-						top: 50%;
-						left: 50%;
-						transform: translate(-50%, -50%);
-						font-size: 20px;
-						color: var(--vscode-editor-foreground);
+					.skeleton-line {
+						height: 20px;
+						background: #eee;
+						margin: 10px;
+						border-radius: 4px;
+						animation: pulse 1.5s infinite;
+					}
+					@keyframes pulse {
+						0% { opacity: 1; }
+						50% { opacity: 0.5; }
+						100% { opacity: 1; }
 					}
 					body {
 						padding: 20px;
@@ -172,93 +198,71 @@ export class Webview {
 			</head>
 			<body>
 			<!-- 添加加载提示 -->
-            <div class="loading" id="loading">正在生成选项预览...</div>
             
-
-				<!-- 添加调试工具栏 -->
-				<div class="debug-toolbar">
-					<button onclick="openDevTools">打开调试器</button>
-					<button onclick="dumpState">输出状态</button>
-				</div>
-
 				<div class="toolbar">
-					<button onclick="${this.expandAll}">展开全部</button>
-					<button onclick="collapseAll">折叠全部</button>
-					<button onclick="copyToClipboard">复制</button>
+					<button id="copyBtn" >复制</button>
 				</div>
 				<div class="json-container" id="json-content">
-					${this.renderJSON(data)}
+					<div class="loading" id="loading">
+						<div class="skeleton-line" style="width: 80%"></div>
+						<div class="skeleton-line" style="width: 60%"></div>
+						<div class="skeleton-line" style="width: 70%"></div>
+					</div>    
 				</div>
-				<script>
-				  // 先显示加载提示
-                	const loading = document.getElementById('loading');
-                  // 延迟渲染防止阻塞
-                window.addEventListener('load', () => {
-                    // 隐藏加载动画
-                    loading.style.display = 'none';
-					const vscode = acquireVsCodeApi();
-					 // 修正消息发送逻辑
-					function safePostMessage(msg) {
-						try {
-							vscode.postMessage(msg);
-						} catch (e) {
-							console.error('消息发送失败:', e);
-						}
-					}
+			</body>
+			<script>
+				let currentData = null;
+				const vscode = acquireVsCodeApi();
 
-					function copyToClipboard() {
-						const content = ${JSON.stringify(data).replace(/\\/g, '\\\\')}; // 处理路径转义
-						safePostMessage({
-							command: 'copy',
-							text: JSON.stringify(content, null, 2)
-						});
+				window.addEventListener('message', event => {
+					const message = event.data;
+					switch (message.type) {
+						case 'LOAD_DATA':
+							console.log('receive message')
+							currentData = message.data;
+							renderData(currentData);
+							break;
 					}
+				});
 
-					
-					// 调试方法
-					function openDevTools() {
-						vscode.postMessage({
-							command: 'debug',
-							action: 'openDevTools'
-						});
-					}
+				function renderData(data) {
+					const container = document.getElementById('json-content');
+					const loading = document.getElementById('loading');
+					console.log('renderData', data)
+					loading.style.display = 'none';
+					container.innerHTML = data;
+					initCollapsible();
+					initEvents();
+				}
 
-					function dumpState() {
-						console.log('当前数据结构:', ${JSON.stringify(data)});
-						vscode.postMessage({
-							command: 'debug',
-							action: 'dumpState',
-							data: ${JSON.stringify(data)}
-						});
-					}
-					document.addEventListener('click', (e) => {
-						console.log(e.target)
-						if (e.target.parentElement.classList.contains('collapsible')) {
-							e.target.parentElement.classList.toggle('collapsed');
+				// 事件委托
+				function initCollapsible() {
+					// 使用静态父容器监听
+					document.getElementById('json-content').addEventListener('click', (e) => {
+						// 精确匹配点击目标
+						const collapsible = e.target.closest('.collapsible');
+						const collapsibleNode = e.target.classList.contains('collapsible')
+						if (collapsible && collapsibleNode) {
+							collapsible.classList.toggle('collapsed');
+							console.log('折叠状态切换:', collapsible.classList.contains('collapsed'));
 						}
 					});
-	
-					function expandAll() {
-						console.log('expandAll')
-						document.querySelectorAll('.collapsed').forEach(el => {
-							el.classList.remove('collapsed');
+				}
+				
+			
+				// 统一事件绑定
+				function initEvents() {
+					document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+				}
+
+				function copyToClipboard() {
+					vscode.postMessage({
+							command: 'copy',
 						});
-					}
-	
-					function collapseAll() {
-					console.log('collapseAll')
-						document.querySelectorAll('.collapsible').forEach(el => {
-							el.classList.add('collapsed');
-						});
-					}
-	
-				});
-				  // 添加重试机制
-                function retryRender() {
-                    vscode.postMessage({ command: 'retryRender' });
-                }
+				}
+			
+				
 				</script>
-			</body>
 			</html>
 		`;
 	}
@@ -321,5 +325,6 @@ export class Webview {
 			.replace(/"/g, '&quot;')
 			.replace(/'/g, '&#039;');
 	}
+
 }
 
